@@ -8,7 +8,7 @@ const Index = () => {
   useEffect(() => {
     setTimeout(() => {
       router.navigate("/(auth)/welcome");
-    }, 500);
+    }, 600);
   });
   return (
     <View style={styles.container}>
