@@ -4,6 +4,7 @@ import Input from "@/components/Input";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import Typo from "@/components/Typo";
 import { colors, spacingX, spacingY } from "@/constants/theme";
+import { useAuth } from "@/context/authContext";
 import { verticalScale } from "@/utils/styling";
 import { useRouter } from "expo-router";
 import * as Icons from "phosphor-react-native";
@@ -13,20 +14,37 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 const Register = () => {
   const emailRef = useRef("");
   const passwordRef = useRef("");
+  const router = useRouter();
   const nameRef = useRef("");
   const [isLoading, setIsLoading] = useState(false);
-  const handleSubmit = () => {
+  const { register: registerUser } = useAuth();
+
+  const handleSubmit = async () => {
     if (!nameRef.current || !emailRef.current || !passwordRef.current) {
       Alert.alert("Sign Up", "Please fill in all fields");
       return;
     }
-    console.log("name", nameRef.current);
-    console.log("email", emailRef.current);
-    console.log("password", passwordRef.current);
-    console.log("Good to go");
+    setIsLoading(true);
+    // register
+    const res = await registerUser(
+      nameRef.current,
+      emailRef.current,
+      passwordRef.current
+    );
+    setIsLoading(false);
+    // check if success
+    console.log("Register result:", res);
+    if (!res.success) {
+      Alert.alert("Sign Up", res.msg);
+      return;
+    }
+    if (res.success) {
+      Alert.alert("Sign Up", "Account created successfully");
+      // router.replace("/(auth)/login");
+      return;
+    }
   };
 
-  const router = useRouter();
   return (
     <ScreenWrapper>
       <View style={styles.container}>
