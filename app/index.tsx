@@ -5,11 +5,11 @@ import { Image, StyleSheet, View } from "react-native";
 
 const Index = () => {
   const router = useRouter();
-  useEffect(() => {
-    setTimeout(() => {
-      router.navigate("/(auth)/welcome");
-    }, 600);
-  });
+  // useEffect(() => {
+  //   setTimeout(() => {
+  //     router.navigate("/(auth)/welcome");
+  //   }, 600);
+  // });
   return (
     <View style={styles.container}>
       <Image

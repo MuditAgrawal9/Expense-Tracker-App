@@ -1,11 +1,13 @@
 import { auth, firestore } from "@/config/firebase";
 import { AuthContextType, UserType } from "@/types";
+import { router } from "expo-router";
 import {
   createUserWithEmailAndPassword,
+  onAuthStateChanged,
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -14,12 +16,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<UserType>(null);
 
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      // console.log("(AuthContext)Firebase User:", firebaseUser);
+      if (firebaseUser) {
+        setUser({
+          uid: firebaseUser?.uid,
+          email: firebaseUser?.email,
+          name: firebaseUser?.displayName,
+        });
+
+        //update user data to include name
+        updateUserData(firebaseUser?.uid);
+
+        router.replace("/(tabs)");
+      } else {
+        //no user
+        setUser(null);
+        router.replace("/(auth)/welcome");
+      }
+      // console.log("User:", user);
+    });
+
+    return () => {
+      unsub();
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log("(authContext)User:", user);
+  }, [user]);
+
   const login = async (email: string, password: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       return { success: true };
     } catch (error: any) {
       let msg = error.message;
+      console.log("Login error:", msg);
+      if (msg.includes("user-not-found")) {
+        msg = "User not found";
+      } else if (msg.includes("wrong-password")) {
+        msg = "Wrong password";
+      } else if (msg.includes("invalid-email")) {
+        msg = "Invalid email";
+      } else if (msg.includes("invalid-login-credentials")) {
+        msg = "Wrong email or password";
+      }
       return { success: false, msg };
     }
   };
@@ -39,6 +82,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return { success: true };
     } catch (error: any) {
       let msg = error.message;
+      console.log("Register error:", msg);
+      if (msg.includes("email-already-in-use")) {
+        msg = "Email already in use";
+      } else if (msg.includes("invalid-email")) {
+        msg = "Invalid email";
+      } else if (msg.includes("weak-password")) {
+        msg = "Password should be at least 6 characters";
+      }
       return { success: false, msg };
     }
   };
@@ -54,6 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           name: data.name || null,
           email: data.email || null,
           uid: data.uid || null,
+          image: data.image || null,
         };
         setUser({ ...userData });
       } else {
