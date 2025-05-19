@@ -43,9 +43,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  useEffect(() => {
-    console.log("(authContext)User:", user);
-  }, [user]);
+  // useEffect(() => {
+  //   console.log("(authContext)User:", user);
+  // }, [user]);
 
   const login = async (email: string, password: string) => {
     try {

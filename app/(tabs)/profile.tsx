@@ -1,26 +1,58 @@
 import Header from "@/components/Header";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import Typo from "@/components/Typo";
+import { auth } from "@/config/firebase";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { useAuth } from "@/context/authContext";
 import { getProfileImage } from "@/services/imageService";
 import { accountOptionType } from "@/types";
 import { verticalScale } from "@/utils/styling";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { signOut } from "firebase/auth";
 import * as Icons from "phosphor-react-native";
 import React from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 const Profile = () => {
   const { user } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
+  const showLogoutAlert = () => {
+    Alert.alert("Confirm", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        onPress: () => console.log("Cancel logout"),
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        onPress: () => handleLogout(),
+        style: "destructive",
+      },
+    ]);
+  };
+
+  const handlePress = (item: accountOptionType) => {
+    if (item.title === "Logout") {
+      showLogoutAlert();
+    }
+
+    if (item.routeName) {
+      router.push(item.routeName);
+    }
+  };
 
   const accountOptions: accountOptionType[] = [
     {
       title: "Edit Profile",
       icon: <Icons.User size={26} color={colors.white} weight="fill" />,
       bgColor: "#6366f1",
-      routeName: "",
+      routeName: "../(modals)/profileModal",
     },
     {
       title: "Settings",
@@ -78,7 +110,10 @@ const Profile = () => {
                   .springify()
                   .damping(14)}
               >
-                <TouchableOpacity style={styles.flexRow}>
+                <TouchableOpacity
+                  style={styles.flexRow}
+                  onPress={() => handlePress(item)}
+                >
                   <View
                     style={[
                       styles.listIcon,
