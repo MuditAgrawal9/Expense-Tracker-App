@@ -7,8 +7,10 @@ import Typo from "@/components/Typo";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import { useAuth } from "@/context/authContext";
 import { getProfileImage } from "@/services/imageService";
+import { updateUser } from "@/services/userService";
 import { scale, verticalScale } from "@/utils/styling";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import * as Icons from "phosphor-react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -20,7 +22,8 @@ import {
 } from "react-native";
 
 const ProfileModal = () => {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, updateUserData } = useAuth();
   useEffect(() => {
     setuserData({ name: user?.name || "", image: user?.image || null });
   }, [user]);
@@ -36,8 +39,25 @@ const ProfileModal = () => {
       Alert.alert("User", "Please fill all the fields");
       return;
     }
-
-    console.log("Input name", name);
+    if (name === user?.name && image === user?.image) {
+      Alert.alert("User", "Name and Image same as before");
+      return;
+    }
+    setloading(true);
+    const res = await updateUser(
+      user?.uid as string,
+      userData?.name,
+      userData?.image
+    );
+    setloading(false);
+    if (res.success) {
+      //upadte user state
+      updateUserData(user?.uid as string);
+      Alert.alert("User", res.msg);
+      router.back();
+    } else {
+      Alert.alert("User", res.msg);
+    }
   };
   const [loading, setloading] = useState(false);
   return (
