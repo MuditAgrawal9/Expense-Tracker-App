@@ -10,6 +10,7 @@ import { getProfileImage } from "@/services/imageService";
 import { updateUser } from "@/services/userService";
 import { scale, verticalScale } from "@/utils/styling";
 import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import * as Icons from "phosphor-react-native";
 import React, { useEffect, useState } from "react";
@@ -24,11 +25,18 @@ import {
 const ProfileModal = () => {
   const router = useRouter();
   const { user, updateUserData } = useAuth();
+  const [loading, setloading] = useState(false);
+
   useEffect(() => {
     setuserData({ name: user?.name || "", image: user?.image || null });
   }, [user]);
 
-  const [userData, setuserData] = useState({
+  type UserData = {
+    name: string;
+    image: ImagePicker.ImagePickerAsset | null;
+  };
+
+  const [userData, setuserData] = useState<UserData>({
     name: "",
     image: null,
   });
@@ -59,7 +67,22 @@ const ProfileModal = () => {
       Alert.alert("User", res.msg);
     }
   };
-  const [loading, setloading] = useState(false);
+
+  const onPickImage = async () => {
+    // No permissions request is necessary for launching the image library
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      //   allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.5,
+    });
+
+    // console.log(result);
+
+    if (!result.canceled) {
+      setuserData({ ...userData, image: result.assets[0] });
+    }
+  };
   return (
     <ModalWrapper>
       <View style={styles.container}>
@@ -78,7 +101,7 @@ const ProfileModal = () => {
               contentFit="cover"
               transition={100}
             />
-            <TouchableOpacity style={styles.editIcon}>
+            <TouchableOpacity style={styles.editIcon} onPress={onPickImage}>
               <Icons.Pencil
                 size={verticalScale(20)}
                 color={colors.neutral800}
@@ -100,7 +123,7 @@ const ProfileModal = () => {
       </View>
 
       <View style={styles.footer}>
-        <Button style={{ flex: 1 }} onPress={onSubmit}>
+        <Button style={{ flex: 1 }} onPress={onSubmit} loading={loading}>
           <Typo color={colors.black} fontWeight={700}>
             Update
           </Typo>
