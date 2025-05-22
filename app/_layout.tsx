@@ -12,6 +12,10 @@ const _layout = () => {
             name="(modals)/profileModal"
             options={{ presentation: "modal" }}
           ></Stack.Screen>
+          <Stack.Screen
+            name="(modals)/walletModal"
+            options={{ presentation: "modal" }}
+          ></Stack.Screen>
         </Stack>
       </AuthProvider>
     </>
