@@ -29,7 +29,6 @@ const WalletModal = () => {
 
   const oldWallet: { name: string; image: string; id: string } =
     useLocalSearchParams();
-  console.log("oldWallet", oldWallet);
 
   useEffect(() => {
     if (oldWallet?.id) {
@@ -71,7 +70,6 @@ const WalletModal = () => {
     const res = await createOrUpdateWallet(data);
 
     setloading(false); // Hide loading indicator
-    console.log("(walletModal) resul:", res);
 
     // Show feedback based on API response
     if (res.success) {

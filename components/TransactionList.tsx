@@ -1,8 +1,9 @@
-import { expenseCategories } from "@/constants/data";
+import { expenseCategories, incomeCategory } from "@/constants/data";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { TransactionItemProps, TransactionListType } from "@/types";
 import { verticalScale } from "@/utils/styling";
 import { FlashList } from "@shopify/flash-list";
+import { Timestamp } from "firebase/firestore";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -78,10 +79,20 @@ const TransactionItem = ({
   index,
   handleClick,
 }: TransactionItemProps) => {
-  let category = expenseCategories["utilities"];
-  //   console.log("category: ", category);
+  let category =
+    item?.type === "income"
+      ? incomeCategory
+      : expenseCategories[item?.category!];
+  // console.log("category: ", category);
 
-  const IconComponent = category.icon;
+  const IconComponent = category?.icon;
+
+  const date = (item?.date as Timestamp)
+    ?.toDate()
+    ?.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+    });
   return (
     // Animated view with fade-in-down effect, delayed by index for staggered animation
     <Animated.View
@@ -110,19 +121,20 @@ const TransactionItem = ({
             color={colors.neutral400}
             textProps={{ numberOfLines: 1 }}
           >
-            {/* {item?.description} */}
-            paid wifi bill
+            {item?.description}
           </Typo>
         </View>
 
         {/* Amount and date */}
         <View style={styles.amountDate}>
-          <Typo fontWeight={500} color={colors.rose}>
-            {/* {item?.amount} */}- $23
+          <Typo
+            fontWeight={500}
+            color={item?.type === "income" ? colors.green : colors.rose}
+          >
+            {item?.type === "income" ? "+" : "-"}${item?.amount}
           </Typo>
           <Typo size={13} color={colors.neutral400}>
-            {/* {item?.date} */}
-            12 Jan
+            {date}
           </Typo>
         </View>
       </TouchableOpacity>

@@ -9,6 +9,7 @@ import { expenseCategories, transactionTypes } from "@/constants/data";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { useAuth } from "@/context/authContext";
 import useFetchData from "@/hooks/useFetchData";
+import { createOrUpdateTransaction } from "@/services/transactionService";
 import { deleteWallet } from "@/services/walletService";
 import { TransactionType, WalletType } from "@/types";
 import { scale, verticalScale } from "@/utils/styling";
@@ -32,7 +33,7 @@ const TransactionModal = () => {
   const router = useRouter();
   // Auth context to get current user and update function
   const { user } = useAuth();
-  const [loading, setloading] = useState(false);
+  const [loading, setLoading] = useState(false);
   // State to control date picker visibility
   const [showDatePicker, setShowdatePicker] = useState(false);
   // Local state for transaction form data
@@ -86,7 +87,6 @@ const TransactionModal = () => {
       Alert.alert("Transaction", "Please fill all the fields");
       return;
     }
-    console.log("Transaction Submit: Good to go");
 
     // Prepare transaction data for submission
     let transactionData: TransactionType = {
@@ -101,14 +101,26 @@ const TransactionModal = () => {
     };
 
     // TODO: Implement the actual transaction create/update logic
-    console.log("Transaction data: ", transactionData);
+    // console.log("Transaction data: ", transactionData);
+
+    //todo: include transaction id for updating
+    setLoading(true);
+    const res = await createOrUpdateTransaction(transactionData);
+    setLoading(false);
+
+    if (res.success) {
+      Alert.alert("Transaction", res.msg);
+      router.back();
+    } else {
+      Alert.alert("Transaction", res.msg);
+    }
   };
 
   const onDelete = async () => {
     if (!oldTransaction?.id) return;
-    setloading(true);
+    setLoading(true);
     const res = await deleteWallet(oldTransaction?.id);
-    setloading(false);
+    setLoading(false);
     if (res.success) {
       Alert.alert("Wallet", res.msg);
       router.back();
