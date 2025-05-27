@@ -1,8 +1,13 @@
 import { expenseCategories, incomeCategory } from "@/constants/data";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
-import { TransactionItemProps, TransactionListType } from "@/types";
+import {
+  TransactionItemProps,
+  TransactionListType,
+  TransactionType,
+} from "@/types";
 import { verticalScale } from "@/utils/styling";
 import { FlashList } from "@shopify/flash-list";
+import { useRouter } from "expo-router";
 import { Timestamp } from "firebase/firestore";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -21,8 +26,23 @@ const TransactionList = ({
   emptyListMessage,
 }: TransactionListType) => {
   // Handler for when a transaction item is clicked
-  const handleClick = () => {
-    //todo: open transaction details
+
+  const router = useRouter();
+  const handleClick = (item: TransactionType) => {
+    router.push({
+      pathname: "/(modals)/transactionModal",
+      params: {
+        id: item?.id,
+        type: item?.type,
+        amount: item?.amount,
+        description: item?.description,
+        category: item?.category,
+        image: item?.image,
+        date: (item?.date as Timestamp)?.toDate().toISOString(),
+        uid: item?.uid,
+        walletId: item?.walletId,
+      },
+    });
   };
 
   return (
@@ -101,7 +121,7 @@ const TransactionItem = ({
         .damping(14)}
     >
       {/* Touchable row for the transaction */}
-      <TouchableOpacity style={styles.row} onPress={handleClick(item)}>
+      <TouchableOpacity style={styles.row} onPress={() => handleClick(item)}>
         {/* Category icon */}
         <View style={[styles.icon, { backgroundColor: category.bgColor }]}>
           {IconComponent && (
