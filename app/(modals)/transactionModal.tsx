@@ -9,8 +9,10 @@ import { expenseCategories, transactionTypes } from "@/constants/data";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { useAuth } from "@/context/authContext";
 import useFetchData from "@/hooks/useFetchData";
-import { createOrUpdateTransaction } from "@/services/transactionService";
-import { deleteWallet } from "@/services/walletService";
+import {
+  createOrUpdateTransaction,
+  deleteTransaction,
+} from "@/services/transactionService";
 import { TransactionType, WalletType } from "@/types";
 import { scale, verticalScale } from "@/utils/styling";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -134,7 +136,10 @@ const TransactionModal = () => {
   const onDelete = async () => {
     if (!oldTransaction?.id) return;
     setLoading(true);
-    const res = await deleteWallet(oldTransaction?.id);
+    const res = await deleteTransaction(
+      oldTransaction?.id,
+      oldTransaction?.walletId
+    );
     setLoading(false);
     if (res.success) {
       Alert.alert("Wallet", res.msg);
@@ -146,22 +151,18 @@ const TransactionModal = () => {
 
   // Show confirmation alert before deleting
   const showDeleteAlert = () => {
-    Alert.alert(
-      "Confirm",
-      "Are you sure you want to do this? \n This will remove all transactions realted to this wallet",
-      [
-        {
-          text: "Cancel",
-          onPress: () => console.log("Cancel delete"),
-          style: "cancel",
-        },
-        {
-          text: "Delete",
-          onPress: () => onDelete(),
-          style: "destructive",
-        },
-      ]
-    );
+    Alert.alert("Confirm", "Are you sure you want to do this transaction?", [
+      {
+        text: "Cancel",
+        onPress: () => console.log("Cancel delete"),
+        style: "cancel",
+      },
+      {
+        text: "Delete",
+        onPress: () => onDelete(),
+        style: "destructive",
+      },
+    ]);
   };
 
   return (

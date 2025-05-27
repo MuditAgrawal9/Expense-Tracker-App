@@ -1,8 +1,15 @@
 import { firestore } from "@/config/firebase";
+import { createOrUpdateWallet } from "@/services/walletService";
 import { ResponseType, TransactionType, WalletType } from "@/types";
-import { collection, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { uploadFileToCloudinary } from "./imageService";
-import { createOrUpdateWallet } from "./walletService";
 
 /**
  * Creates or updates a transaction in Firestore and updates the associated wallet's balance.
@@ -259,6 +266,78 @@ const revertAndUpdateWallets = async (
     return { success: true };
   } catch (error: any) {
     console.log("Error updating the wallet for new  transaction :", error);
+    return { success: false, msg: error.message };
+  }
+};
+
+/**
+ * Deletes a transaction and reverts its effect on the associated wallet.
+ * Ensures wallet balance and totals remain accurate after deletion.
+ *
+ * @param transactionId - The ID of the transaction to delete
+ * @param walletId - The ID of the wallet associated with the transaction
+ * @returns {Promise<ResponseType>} - Success or failure response
+ */
+export const deleteTransaction = async (
+  transactionId: string,
+  walletId: string
+) => {
+  try {
+    // Fetch the transaction to get its details
+    const transactionRef = doc(firestore, "transactions", transactionId);
+    const transactionSnapshot = await getDoc(transactionRef);
+    if (!transactionSnapshot.exists()) {
+      return { success: false, msg: "Transaction not found" };
+    }
+
+    // Get transaction data (amount and type are needed to revert wallet)
+    const transactionData = transactionSnapshot.data() as TransactionType;
+    const { amount: transactionAmount, type: transactionType } =
+      transactionData;
+
+    // Fetch the wallet to update its balance n totals
+    const walletSnapshot = await getDoc(doc(firestore, "wallets", walletId));
+    const walletData = walletSnapshot.data() as WalletType;
+
+    // Determine which field to update:totalIncome or totalExpenses
+    const updateType =
+      transactionType === "income" ? "totalIncome" : "totalExpenses";
+
+    // Calculate the new wallet balance after deleting the transaction
+    // For income: subtract the amount (since it was previously added)
+    // For expense: add the amount back (since it was previously subtracted)
+    const updatedWalletAmount =
+      transactionType === "income"
+        ? Number(walletData.amount) - transactionAmount
+        : Number(walletData.amount) + transactionAmount;
+
+    // Calculate new income/expense total
+    const updatedTotals =
+      transactionType === "income"
+        ? Number(walletData.totalIncome) - transactionAmount
+        : Number(walletData.totalExpenses) - transactionAmount;
+
+    // Prevent negative balances ---
+    if (updatedWalletAmount < 0) {
+      return {
+        success: false,
+        msg: "Selected wallet doesn't have enough balance after deletion",
+      };
+    }
+
+    // Revert the transaction's effect on the wallet
+    await createOrUpdateWallet({
+      id: walletId,
+      amount: updatedWalletAmount,
+      [updateType]: updatedTotals,
+    });
+
+    // Delete the transaction document from Firestore ----
+    await deleteDoc(doc(firestore, "transactions", transactionId));
+
+    return { success: true, msg: "Transaction deleted successfully" };
+  } catch (error: any) {
+    console.log("Error deleting the transaction :", error);
     return { success: false, msg: error.message };
   }
 };
