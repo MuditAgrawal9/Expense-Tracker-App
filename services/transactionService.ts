@@ -1,13 +1,21 @@
 import { firestore } from "@/config/firebase";
+import { colors } from "@/constants/theme";
 import { createOrUpdateWallet } from "@/services/walletService";
 import { ResponseType, TransactionType, WalletType } from "@/types";
+import { getLast7Days } from "@/utils/common";
+import { scale } from "@/utils/styling";
 import {
   collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
+  orderBy,
+  query,
   setDoc,
+  Timestamp,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { uploadFileToCloudinary } from "./imageService";
 
@@ -338,6 +346,96 @@ export const deleteTransaction = async (
     return { success: true, msg: "Transaction deleted successfully" };
   } catch (error: any) {
     console.log("Error deleting the transaction :", error);
+    return { success: false, msg: error.message };
+  }
+};
+
+/**
+ * Fetches weekly income and expense statistics for a user from Firestore.
+ * 
+ * - Retrieves all transactions for the specified user from the past 7 days.
+ * - Aggregates income and expense totals for each day of the week.
+ * - Formats the data for use in a bar chart and also returns the raw transactions.
+ * 
+ * @param uid - The user's unique identifier.
+ * @returns A promise resolving to an object containing:
+ *    - success: boolean indicating if the fetch was successful
+ *    - data: { stats: Array for chart, transactions: Array of transactions }
+ *    - msg: Status or error message
+ */
+export const fetchWeeklyStats = async (uid: string): Promise<ResponseType> => {
+  try {
+    const db = firestore;
+
+    // Get today's date and the date 7 days ago
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+
+    // Build a Firestore query to get transactions for the user in the last 7 days
+    const transactionsQuery = query(
+      collection(db, "transactions"),
+      where("uid", "==", uid),
+      where("date", ">=", Timestamp.fromDate(sevenDaysAgo)),
+      where("date", "<=", Timestamp.fromDate(today)),
+      orderBy("date", "desc")
+    );
+
+    // Execute the query and get the results
+    const querySnapshot = await getDocs(transactionsQuery);
+
+    // Initialize weekly data structure (one entry per day for the last 7 days)
+    const weeklyData = getLast7Days();
+
+    // This will hold all transactions fetched
+    const transactions: TransactionType[] = [];
+
+    // Loop through each transaction document
+    querySnapshot.forEach((doc) => {
+      const transaction = doc.data() as TransactionType;
+      transaction.id = doc.id; // Add the document ID to the transaction
+      transactions.push(transaction);
+
+      // Get the transaction's date as a string in 'YYYY-MM-DD' format
+      const transactionDate = (transaction.date as Timestamp)
+        .toDate()
+        .toISOString()
+        .split("T")[0];
+
+      // Find the corresponding day in weeklyData
+      const dayData = weeklyData.find((day) => day.date === transactionDate);
+
+      // If the transaction matches a day in the last 7 days, update income/expense
+      if (dayData) {
+        if (transaction.type === "income") {
+          dayData.income += transaction.amount || 0;
+        } else if (transaction.type === "expense") {
+          dayData.expense += transaction.amount || 0;
+        }
+      }
+    });
+
+    // Prepare the stats array for the bar chart
+    // Each day is mapped to two bars: income and expense
+    const stats = weeklyData.flatMap((day) => [
+      {
+        value: day.income,
+        label: day.day,
+        spacing: scale(4),
+        labelWidth: scale(30),
+        frontColor: colors.primary,
+      },
+      { value: day.expense, frontColor: colors.rose },
+    ]);
+
+    // Return the stats and transactions in a success response
+    return {
+      success: true,
+      data: { stats, transactions },
+      msg: "Weekly stats fetched successfully",
+    };
+  } catch (error: any) {
+    console.log("Error fetching weekly stats:", error);
     return { success: false, msg: error.message };
   }
 };
