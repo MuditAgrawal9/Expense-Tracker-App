@@ -4,7 +4,11 @@ import ScreenWrapper from "@/components/ScreenWrapper";
 import TransactionList from "@/components/TransactionList";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { useAuth } from "@/context/authContext";
-import { fetchWeeklyStats } from "@/services/transactionService";
+import {
+  fetchMonthlyStats,
+  fetchWeeklyStats,
+  fetchYearlyStats,
+} from "@/services/transactionService";
 import { scale, verticalScale } from "@/utils/styling";
 import SegmentedControl from "@react-native-segmented-control/segmented-control";
 import React, { useEffect } from "react";
@@ -46,8 +50,32 @@ const Statistics = () => {
       Alert.alert("Error", res?.msg);
     }
   };
-  const getMonthlyStats = async () => {};
-  const getYearlyStats = async () => {};
+
+  // Fetch and process monthly stats
+  const getMonthlyStats = async () => {
+    setChartLoading(true);
+    let res = await fetchMonthlyStats(user?.uid as string); // Fetch stats from service
+    setChartLoading(false);
+    if (res.success) {
+      setChartData(res?.data?.stats);
+      setTransactions(res?.data?.transactions);
+    } else {
+      Alert.alert("Error", res?.msg);
+    }
+  };
+
+  // Fetch and process yearly stats
+  const getYearlyStats = async () => {
+    setChartLoading(true);
+    let res = await fetchYearlyStats(user?.uid as string); // Fetch stats from service
+    setChartLoading(false);
+    if (res.success) {
+      setChartData(res?.data?.stats);
+      setTransactions(res?.data?.transactions);
+    } else {
+      Alert.alert("Error", res?.msg);
+    }
+  };
 
   return (
     <ScreenWrapper>

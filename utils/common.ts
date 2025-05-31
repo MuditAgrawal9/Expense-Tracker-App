@@ -36,10 +36,14 @@ export const getLast12Months = () => {
   ];
   const result = [];
 
+  const today = new Date();
   // Loop over the last 12 months, from 11 months ago to current month
   for (let i = 11; i >= 0; i--) {
-    const date = new Date(); // Current date
-    date.setMonth(date.getMonth() - i); // Move back i months
+    // const date = new Date(); // Current date
+
+    // Always set to the first day of the month to prevent rollover
+    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    // date.setMonth(date.getMonth() - i); // Move back i months 
 
     const monthName = monthsOfYear[date.getMonth()]; // Month name (e.g., "Jan")
     const shortYear = date.getFullYear().toString().slice(-2); // Last two digits of year

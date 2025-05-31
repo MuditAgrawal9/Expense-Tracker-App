@@ -2,7 +2,7 @@ import { firestore } from "@/config/firebase";
 import { colors } from "@/constants/theme";
 import { createOrUpdateWallet } from "@/services/walletService";
 import { ResponseType, TransactionType, WalletType } from "@/types";
-import { getLast7Days } from "@/utils/common";
+import { getLast12Months, getLast7Days, getYearsRange } from "@/utils/common";
 import { scale } from "@/utils/styling";
 import {
   collection,
@@ -352,11 +352,11 @@ export const deleteTransaction = async (
 
 /**
  * Fetches weekly income and expense statistics for a user from Firestore.
- * 
+ *
  * - Retrieves all transactions for the specified user from the past 7 days.
  * - Aggregates income and expense totals for each day of the week.
  * - Formats the data for use in a bar chart and also returns the raw transactions.
- * 
+ *
  * @param uid - The user's unique identifier.
  * @returns A promise resolving to an object containing:
  *    - success: boolean indicating if the fetch was successful
@@ -436,6 +436,196 @@ export const fetchWeeklyStats = async (uid: string): Promise<ResponseType> => {
     };
   } catch (error: any) {
     console.log("Error fetching weekly stats:", error);
+    return { success: false, msg: error.message };
+  }
+};
+
+/**
+ * Fetches monthly income and expense statistics for a user from Firestore.
+ *
+ * - Retrieves all transactions for the specified user from the past 12 months.
+ * - Aggregates income and expense totals for each month.
+ * - Formats the data for use in a bar chart and also returns the raw transactions.
+ *
+ * @param uid - The user's unique identifier.
+ * @returns A promise resolving to an object containing:
+ *    - success: boolean indicating if the fetch was successful
+ *    - data: { stats: Array for chart, transactions: Array of transactions }
+ *    - msg: Status or error message
+ */
+export const fetchMonthlyStats = async (uid: string): Promise<ResponseType> => {
+  try {
+    const db = firestore;
+
+    // Get today's date and the date 12 months ago
+    const today = new Date();
+    const twelveMonthsAgo = new Date(today);
+    twelveMonthsAgo.setMonth(today.getMonth() - 12);
+
+    // Build a Firestore query to get transactions for the user in the last 12 months
+    const transactionsQuery = query(
+      collection(db, "transactions"),
+      where("uid", "==", uid),
+      where("date", ">=", Timestamp.fromDate(twelveMonthsAgo)),
+      where("date", "<=", Timestamp.fromDate(today)),
+      orderBy("date", "desc")
+    );
+
+    // Execute the query and get the results
+    const querySnapshot = await getDocs(transactionsQuery);
+
+    // Initialize monthly data structure (one entry per month for the last 12 months)
+    const monthlyData = getLast12Months();
+
+    // This will hold all transactions fetched
+    const transactions: TransactionType[] = [];
+
+    // Loop through each transaction document
+    querySnapshot.forEach((doc) => {
+      const transaction = doc.data() as TransactionType;
+      transaction.id = doc.id; // Add the document ID to the transaction
+      transactions.push(transaction);
+
+      const transactionDate = (transaction.date as Timestamp).toDate();
+
+      // Format month and year, e.g., "Jan 25"
+      const monthName = transactionDate.toLocaleString("default", {
+        month: "short",
+      });
+      const shortYear = transactionDate.getFullYear().toString().slice(-2); // Last two digits of year
+      const formattedMonthYear = `${monthName} ${shortYear}`; // e.g., "Jan 25"
+
+      // Find the corresponding month in monthlyData
+      const monthData = monthlyData.find(
+        (month) => month.month === formattedMonthYear
+      );
+
+      // If the transaction matches a month in the last 12 months, update income/expense
+      if (monthData) {
+        if (transaction.type === "income") {
+          monthData.income += transaction.amount || 0;
+        } else if (transaction.type === "expense") {
+          monthData.expense += transaction.amount || 0;
+        }
+      }
+    });
+
+    // Prepare the stats array for the bar chart
+    // Each month is mapped to two bars: income and expense
+    const stats = monthlyData.flatMap((month) => [
+      {
+        value: month.income,
+        label: month.month,
+        spacing: scale(4),
+        labelWidth: scale(46),
+        frontColor: colors.primary,
+      },
+      { value: month.expense, frontColor: colors.rose },
+    ]);
+
+    // Return the stats and transactions in a success response
+    return {
+      success: true,
+      data: { stats, transactions },
+      msg: "Monthly stats fetched successfully",
+    };
+  } catch (error: any) {
+    console.log("Error fetching monthly stats:", error);
+    return { success: false, msg: error.message };
+  }
+};
+
+/**
+ * Fetches yearly income and expense statistics for a user from Firestore.
+ *
+ * - Retrieves all transactions for the specified user.
+ * - Finds the earliest transaction year and aggregates income and expense totals for each year up to the current year.
+ * - Formats the data for use in a bar chart and also returns the raw transactions.
+ *
+ * @param uid - The user's unique identifier.
+ * @returns A promise resolving to an object containing:
+ *    - success: boolean indicating if the fetch was successful
+ *    - data: { stats: Array for chart, transactions: Array of transactions }
+ *    - msg: Status or error message
+ */
+export const fetchYearlyStats = async (uid: string): Promise<ResponseType> => {
+  try {
+    const db = firestore;
+
+    // Query all transactions for the user, ordered by date descending
+    const transactionsQuery = query(
+      collection(db, "transactions"),
+      where("uid", "==", uid),
+      orderBy("date", "desc")
+    );
+
+    // Execute the query and get the results
+    const querySnapshot = await getDocs(transactionsQuery);
+
+    // This will hold all transactions fetched
+    const transactions: TransactionType[] = [];
+
+    // Find the earliest transaction date among all documents
+    // If there are no transactions, default to the current date
+    const firstTransactionDate = querySnapshot.docs.reduce((earliest, doc) => {
+      const transactionDate = doc.data().date.toDate();
+      return transactionDate < earliest ? transactionDate : earliest;
+    }, new Date());
+
+    // Get the start year from the earliest transaction
+    const startYear = firstTransactionDate.getFullYear();
+    // Get the current year
+    const currentYear = new Date().getFullYear();
+    // Initialize yearly data structure (one entry per year from startYear to currentYear)
+    const yearlyData = getYearsRange(startYear, currentYear);
+
+    // Loop through each transaction document
+    querySnapshot.forEach((doc) => {
+      const transaction = doc.data() as TransactionType;
+      transaction.id = doc.id; // Add the document ID to the transaction
+      transactions.push(transaction);
+
+      // Get the year from the transaction's date
+      const transactionYear = (transaction.date as Timestamp)
+        .toDate()
+        .getFullYear();
+
+      // Find the corresponding month in yearlyData
+      const yearData = yearlyData.find(
+        (item: any) => item.year === transactionYear.toString()
+      );
+
+      // If the transaction matches a year, update income/expense
+      if (yearData) {
+        if (transaction.type === "income") {
+          yearData.income += transaction.amount || 0;
+        } else if (transaction.type === "expense") {
+          yearData.expense += transaction.amount || 0;
+        }
+      }
+    });
+
+    // Prepare the stats array for the bar chart
+    // Each year is mapped to two bars: income and expense
+    const stats = yearlyData.flatMap((year: any) => [
+      {
+        value: year.income,
+        label: year.year,
+        spacing: scale(4),
+        labelWidth: scale(35),
+        frontColor: colors.primary,
+      },
+      { value: year.expense, frontColor: colors.rose },
+    ]);
+
+    // Return the stats and transactions in a success response
+    return {
+      success: true,
+      data: { stats, transactions },
+      msg: "Yearly stats fetched successfully",
+    };
+  } catch (error: any) {
+    console.log("Error fetching yearly stats:", error);
     return { success: false, msg: error.message };
   }
 };
